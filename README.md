@@ -103,6 +103,9 @@ make prog        # program the board with fujprog
 1. **Testbenches**: `make test`.
 2. **Coverage (Coverview)**: `make coverage-html`. The coverage table goes into the job summary,
    and `index.html`, `coverview.zip` and `summary.md` are uploaded as the `coverage` artifact.
+3. **Deploy coverage to GitHub Pages**: on pushes (and manual runs) of the default branch, the
+   same files are published to GitHub Pages, so the dashboard is at
+   `https://<owner>.github.io/<repo>/`. Requires *Settings → Pages → Source: GitHub Actions*.
 
 Verilator is built from source by `.github/actions/setup-verilator` and cached per version.
 Verilator, info-process and Coverview versions are pinned in the workflow and the `Makefile`.
