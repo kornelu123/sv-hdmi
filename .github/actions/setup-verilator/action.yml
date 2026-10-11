@@ -1,0 +1,38 @@
+name: Set up Verilator
+description: Build Verilator from source (cached per version) and add it to PATH.
+
+inputs:
+  version:
+    description: Verilator git tag, e.g. v5.052
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore Verilator
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/verilator
+        key: verilator-${{ inputs.version }}-${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}
+
+    - name: Build Verilator ${{ inputs.version }}
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          autoconf bison flex help2man libfl-dev zlib1g-dev
+        git clone --depth 1 --branch "${{ inputs.version }}" \
+          https://github.com/verilator/verilator.git "$RUNNER_TEMP/verilator-src"
+        cd "$RUNNER_TEMP/verilator-src"
+        autoconf
+        ./configure --prefix="$HOME/verilator"
+        make -j"$(nproc)"
+        make install
+
+    - name: Add Verilator to PATH
+      shell: bash
+      run: |
+        echo "$HOME/verilator/bin" >> "$GITHUB_PATH"
+        "$HOME/verilator/bin/verilator" --version

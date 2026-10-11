@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERILATOR_VERSION: v5.052
+  # https://github.com/antmicro/info-process (merges .info files, packs Coverview archives)
+  INFO_PROCESS_REF: 58cb48acaf0f0644d10367319e50640970dfec1a
+
+jobs:
+  test:
+    name: Testbenches
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-verilator
+        with:
+          version: ${{ env.VERILATOR_VERSION }}
+
+      - name: Run testbenches
+        run: make -j"$(nproc)" test
+
+  coverage:
+    name: Coverage (Coverview)
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-verilator
+        with:
+          version: ${{ env.VERILATOR_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install info-process
+        run: pip install "git+https://github.com/antmicro/info-process.git@${INFO_PROCESS_REF}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Collect coverage and build the Coverview dashboard
+        run: make -j"$(nproc)" coverage-html
+
+      - name: Coverage summary
+        run: |
+          {
+            echo "## RTL coverage"
+            echo
+            cat build/coverage/summary.md
+            echo
+            echo "Download the \`coverage\` artifact and open \`index.html\`, or load \`coverview.zip\` into https://antmicro.github.io/coverview/."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            build/coverage/index.html
+            build/coverage/coverview.zip
+            build/coverage/summary.md
+          if-no-files-found: error

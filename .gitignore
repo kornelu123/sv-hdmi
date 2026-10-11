@@ -1,0 +1,15 @@
+# Simulation, coverage and tool builds (make test / coverage / coverage-html)
+/build/
+
+# Compiler temporary files
+/tmp/
+
+# Waveforms
+*.vcd
+*.fst
+
+# ULX3S bitstream flow outputs (make bitstream)
+/ulx3s.json
+/ulx3s_out.config
+/ulx3s.bit
+/abc.history
