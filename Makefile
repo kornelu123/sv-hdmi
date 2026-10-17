@@ -189,7 +189,7 @@ FPGA_SPEED   ?= 6
 bitstream: $(FPGA_BIT)
 
 $(FPGA_JSON): $(FPGA_SRCS)
-	$(YOSYS) -p 'read_verilog -sv $(FPGA_SRCS); synth_ecp5 -top $(FPGA_TOP) -json $@'
+	$(YOSYS) -p 'read_verilog -sv $(FPGA_SRCS); synth_ecp5 -top $(FPGA_TOP) -json $@; stat;'
 
 $(FPGA_CONFIG): $(FPGA_JSON) $(FPGA_LPF)
 	$(NEXTPNR) $(FPGA_DEVICE) \

@@ -27,8 +27,8 @@ flowchart LR
 | `rtl/pll.sv` | ECP5 `EHXPLLL`, 25 MHz → 125 MHz (generated with `ecppll -i 25 -o 125`, do not edit) |
 | `rtl/display_signal.sv` | Raster counters and sync/display-enable generation, parameterized timing and polarity |
 | `rtl/pattern.sv` | Gradient pattern: `r = x·255/H_RES`, `g = 0`, `b = y·255/V_RES` |
-| `rtl/hdmi.sv` | Input pipeline, three TMDS encoders, three serializers; lane 3 carries the pixel clock |
-| `rtl/tmds.sv` | TMDS encoder (DVI 1.0 §3.2.2) with running-disparity DC balance and control tokens |
+| `rtl/hdmi.sv` | Input register, three TMDS encoders, three serializers; lane 3 carries the pixel clock. 4 pixel clocks from `hve`/`rgb` to the serializers |
+| `rtl/tmds.sv` | TMDS encoder (DVI 1.0 §3.2.2) with running-disparity DC balance and control tokens; 3-stage pipeline (q_m, disparity, running-disparity/output) |
 | `rtl/serial10b.sv` | 10:1 serializer: 5× serial clock with `ODDRX1F` DDR output |
 | `rtl/differential.sv` | Output buffer; the negative pins come from the `LVCMOS33D` I/O type in the `.lpf` |
 | `rtl/bram.sv` | Generic simple dual-port RAM (read-first, optional `$readmemh` init); not instantiated |
@@ -57,7 +57,7 @@ make wave T=hdmi         # open it in gtkwave
 
 | Testbench | Checks |
 |---|---|
-| `tb_tmds` | Bit-exact against a reference encoder written from the DVI spec; decode round trip; disparity reset |
+| `tb_tmds` | Bit-exact against a reference encoder written from the DVI spec at the 3-cycle pipeline latency; decode round trip; disparity reset; reset flushes words in flight |
 | `tb_serial10b` | Back-to-back LSB-first framing at 7 serial/pixel clock phase offsets; reset |
 | `tb_differential` | Pass-through |
 | `tb_bram` | Init file, read latency, read-during-write, random traffic on 16×8 and 64K×16 instances |

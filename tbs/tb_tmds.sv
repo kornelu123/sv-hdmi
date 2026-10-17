@@ -23,29 +23,57 @@ module tb_tmds;
         .o_tmds_encoded (tmds)
     );
 
+    // Pipeline depth of tmds: inputs sampled at edge k appear after edge k+LATENCY-1.
+    localparam int LATENCY = 3;
+
+    typedef struct {
+        logic       r, d_en;
+        logic [1:0] c;
+        logic [7:0] col;
+        logic [9:0] expected;
+        int         cnt;          // reference running disparity after this word
+    } item_t;
+
     int         checks = 0;
     enc_state_t ref_st;
+    // Words in flight, oldest first. Seeded with reset words so the output is
+    // checked from the first edge (the first steps are under reset).
+    item_t      pending [$];
 
-    // Drive one input set on the falling edge and compare the registered
-    // output after the next rising edge against the DVI reference encoder.
+    initial
+        repeat (LATENCY - 1) pending.push_back('{r: 1'b1, d_en: 1'b0, c: 2'b00, col: 8'h00,
+                                               expected: CTRL_TOKEN[0], cnt: 0});
+
+    // Drive one input set on the falling edge; after the next rising edge the
+    // output must be the reference word for the input LATENCY steps back.
+    // Reset clears every pipeline stage, so words still in flight are
+    // replaced by CTRL 00.
     task automatic step(input logic r, input logic d_en, input logic [1:0] c, input logic [7:0] col);
-        logic [9:0] expected;
+        item_t      it;
         logic [1:0] tok;
         @(negedge clk);
         rst = r; de = d_en; ctrl = c; color = col;
         @(posedge clk);
         #1;
+        it = '{r: r, d_en: d_en, c: c, col: col, expected: 'x, cnt: 0};
         if (r) begin
-            ref_st.cnt = 0;
-            expected   = CTRL_TOKEN[0];
+            ref_st.cnt  = 0;
+            it.expected = CTRL_TOKEN[0];
+            foreach (pending[i]) begin
+                pending[i].r        = 1'b1;
+                pending[i].expected = CTRL_TOKEN[0];
+            end
         end else begin
-            expected = encode(ref_st, col, d_en, c);
+            it.expected = encode(ref_st, col, d_en, c);
         end
-        `CHECK(tmds === expected, ("rst=%b de=%b ctrl=%b color=%02h: got %b expected %b (ref cnt %0d)",
-                                   r, d_en, c, col, tmds, expected, ref_st.cnt))
-        if (!r && d_en) begin
-            `CHECK(!is_ctrl(tmds, tok), ("data %02h encoded as control token %b", col, tmds))
-            `CHECK(decode_data(tmds) == col, ("data %02h decodes to %02h (%b)", col, decode_data(tmds), tmds))
+        it.cnt = ref_st.cnt;
+        pending.push_back(it);
+        it = pending.pop_front();
+        `CHECK(tmds === it.expected, ("rst=%b de=%b ctrl=%b color=%02h: got %b expected %b (ref cnt %0d)",
+                                      it.r, it.d_en, it.c, it.col, tmds, it.expected, it.cnt))
+        if (!it.r && it.d_en) begin
+            `CHECK(!is_ctrl(tmds, tok), ("data %02h encoded as control token %b", it.col, tmds))
+            `CHECK(decode_data(tmds) == it.col, ("data %02h decodes to %02h (%b)", it.col, decode_data(tmds), tmds))
         end
     endtask
 
@@ -91,6 +119,8 @@ module tb_tmds;
             automatic logic [1:0] c = 2'($urandom);
             repeat (len) step(1'b0, act, c, 8'($urandom));
         end
+        // Flush the words still in flight.
+        repeat (LATENCY - 1) step(1'b0, 1'b0, 2'b00, 8'h00);
 
         `CHECK(ref_st.branch_hits[0] > 0 && ref_st.branch_hits[1] > 0 && ref_st.branch_hits[2] > 0,
                ("disparity branches not all exercised: %0d/%0d/%0d",

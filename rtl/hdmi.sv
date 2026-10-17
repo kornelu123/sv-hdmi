@@ -10,9 +10,6 @@ module hdmi (
     output logic [3:0] hdmi_tx_p
 );
 
-    // ------------------------------------------------------------------
-    // Pipeline control & colour to the pixel-clock domain
-    // ------------------------------------------------------------------
     logic [2:0]  hve_p;
     logic [23:0] rgb_p;
 
@@ -26,15 +23,12 @@ module hdmi (
         end
     end
 
-    // ------------------------------------------------------------------
-    // TMDS encoders – MUST be clocked by the pixel clock
-    // ------------------------------------------------------------------
     logic [9:0] tmds_ch0, tmds_ch1, tmds_ch2;
 
     tmds encode_b (
-        .i_hdmi_clk     (hdmi_clk),       // <-- pixel clock
+        .i_hdmi_clk     (hdmi_clk),
         .i_rst          (reset),
-        .i_color        (rgb_p[7:0]),     // <-- pipelined
+        .i_color        (rgb_p[7:0]),
         .i_ctrl         (hve_p[1:0]),
         .i_display_en   (hve_p[2]),
         .o_tmds_encoded (tmds_ch0)
