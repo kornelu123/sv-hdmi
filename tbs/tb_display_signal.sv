@@ -88,9 +88,16 @@ module tb_display_signal;
     logic clk = 1'b0;
     always #1 clk = ~clk;
 
-    wire done_vga, done_small, done_default;
+    wire done_steer, done_vga, done_small, done_default;
 
-    // 640x480@60 timing exactly as instantiated in steer (negative syncs).
+    // 800x600@60 timing exactly as instantiated in steer (positive syncs).
+    ds_checker #(
+        .HRES(800), .HFP(40), .HSYNC(128), .HBP(88),
+        .VRES(600), .VFP(1), .VSYNC(4), .VBP(23),
+        .HPOL(1), .VPOL(1), .FRAMES(2)
+    ) svga (.clk(clk), .done(done_steer));
+
+    // VESA 640x480@60, negative syncs.
     ds_checker #(
         .HRES(640), .HFP(16), .HSYNC(96), .HBP(48),
         .VRES(480), .VFP(10), .VSYNC(2), .VBP(33),
@@ -112,8 +119,9 @@ module tb_display_signal;
     ) dflt (.clk(clk), .done(done_default));
 
     initial begin
-        wait (done_vga && done_small && done_default);
-        $display("PASS tb_display_signal: %0d checks", vga.checks + tiny.checks + dflt.checks);
+        wait (done_steer && done_vga && done_small && done_default);
+        $display("PASS tb_display_signal: %0d checks",
+                 svga.checks + vga.checks + tiny.checks + dflt.checks);
         $finish;
     end
 
