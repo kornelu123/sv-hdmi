@@ -16,7 +16,7 @@ module tb_bram;
     logic [7:0] wd_s = '0;
     logic [7:0] rd_s;
     bram #(.AW(4), .DW(8), .INIT_FILE(INIT)) dut_small (
-        .clk(clk), .we(we_s), .waddr(wa_s), .raddr(ra_s), .wdata(wd_s), .rdata(rd_s));
+        .wclk(clk), .we(we_s), .waddr(wa_s), .wdata(wd_s), .rclk(clk), .raddr(ra_s), .rdata(rd_s));
 
     // Default-parameter instance (64K x 16, no init file).
     logic        we_d = 1'b0;
@@ -24,7 +24,7 @@ module tb_bram;
     logic [15:0] wd_d = '0;
     logic [15:0] rd_d;
     bram dut_big (
-        .clk(clk), .we(we_d), .waddr(wa_d), .raddr(ra_d), .wdata(wd_d), .rdata(rd_d));
+        .wclk(clk), .we(we_d), .waddr(wa_d), .wdata(wd_d), .rclk(clk), .raddr(ra_d), .rdata(rd_d));
 
     logic [7:0]  img     [16];
     logic [7:0]  model_s [16];

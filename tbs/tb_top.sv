@@ -32,13 +32,13 @@ module tb_top;
         disable fork;
         `CHECK(led === 8'b1010_1011, ("led=%b after PLL lock, expected 10101011", led))
 
-        // Clock lane is the pixel clock; data lanes are active after lock.
+        // Clock lane is the pixel clock (PLL CLKOS); data lanes are active after lock.
         @(posedge dut.st.hdmi_clk_5x);
         prev = gpdi_dp[2:0];
         repeat (500) begin
             @(posedge dut.st.hdmi_clk_5x or negedge dut.st.hdmi_clk_5x);
             #1;
-            `CHECK(gpdi_dp[3] === clk_25mhz, ("gpdi_dp[3]=%b, clk_25mhz=%b", gpdi_dp[3], clk_25mhz))
+            `CHECK(gpdi_dp[3] === dut.st.pix_clk, ("gpdi_dp[3]=%b, pixel clock=%b", gpdi_dp[3], dut.st.pix_clk))
             for (int i = 0; i < 3; i++)
                 if (gpdi_dp[i] !== prev[i]) toggles[i]++;
             prev = gpdi_dp[2:0];

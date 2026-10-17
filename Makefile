@@ -22,7 +22,7 @@ BUILD       = build
 # Compiler temporaries go under build/ instead of a possibly full /tmp.
 BUILD_TMP   = $(CURDIR)/$(BUILD)/tmp
 
-TESTS       = tmds serial10b differential bram display_signal pattern pll \
+TESTS       = tmds serial10b differential bram framebuffer display_signal pll \
               hdmi steer top
 
 # Simulation-only models of the Lattice ECP5 primitives and shared TB code.
@@ -35,17 +35,30 @@ SRCS_tmds           = $(TMDS_REF) rtl/tmds.sv
 SRCS_serial10b      = $(ODDR_MODEL) rtl/serial10b.sv
 SRCS_differential   = rtl/differential.sv
 SRCS_bram           = rtl/bram.sv
+SRCS_framebuffer    = rtl/bram.sv rtl/framebuffer.sv
 SRCS_display_signal = rtl/display_signal.sv
-SRCS_pattern        = rtl/pattern.sv
 SRCS_pll            = $(PLL_MODEL) rtl/pll.sv
 SRCS_hdmi           = $(TMDS_REF) $(TMDS_RX) $(ODDR_MODEL) rtl/tmds.sv \
                       rtl/serial10b.sv rtl/differential.sv rtl/hdmi.sv
 SRCS_steer          = $(SRCS_hdmi) $(PLL_MODEL) rtl/pll.sv \
-                      rtl/display_signal.sv rtl/pattern.sv rtl/steer.sv
+                      rtl/display_signal.sv rtl/bram.sv rtl/framebuffer.sv rtl/steer.sv
 SRCS_top            = $(SRCS_steer) rtl/top.sv
+
+# Power-up frame buffer image, loaded by steer.sv from this path (relative to
+# the project root, where simulation and yosys run). Built-in test image by
+# default; `make ... FB_IMAGE=photo.png` converts a picture instead (Pillow).
+FB_INIT             = $(BUILD)/fb_init.hex
+FB_IMAGE           ?=
+
+$(FB_INIT): scripts/fb_image.py $(FB_IMAGE)
+	@mkdir -p $(@D)
+	python3 scripts/fb_image.py $(if $(FB_IMAGE),--image $(FB_IMAGE)) $@
 
 # Extra prerequisites that are not compiled (e.g. $readmemh images).
 DATA_bram           = tbs/data/bram_init.hex
+DATA_framebuffer    = tbs/data/fb_init_10x3.hex
+DATA_steer          = $(FB_INIT)
+DATA_top            = $(FB_INIT)
 
 .PHONY: all test $(addprefix test-,$(TESTS)) coverage coverage-html wave clean \
         bitstream prog fpga-clean
@@ -188,11 +201,13 @@ FPGA_SPEED   ?= 6
 
 bitstream: $(FPGA_BIT)
 
-$(FPGA_JSON): $(FPGA_SRCS)
-	$(YOSYS) -p 'read_verilog -sv $(FPGA_SRCS); synth_ecp5 -top $(FPGA_TOP) -json $@; stat;'
+# Tool temporaries (yosys/abc) go under build/ like the simulator's.
+$(FPGA_JSON): $(FPGA_SRCS) $(FB_INIT)
+	@mkdir -p $(BUILD_TMP)
+	TMPDIR=$(BUILD_TMP) $(YOSYS) -p 'read_verilog -sv $(FPGA_SRCS); synth_ecp5 -top $(FPGA_TOP) -json $@; stat;'
 
 $(FPGA_CONFIG): $(FPGA_JSON) $(FPGA_LPF)
-	$(NEXTPNR) $(FPGA_DEVICE) \
+	TMPDIR=$(BUILD_TMP) $(NEXTPNR) $(FPGA_DEVICE) \
 	    --package $(FPGA_PACKAGE) \
 	    --speed $(FPGA_SPEED) \
 	    --json $(FPGA_JSON) \
